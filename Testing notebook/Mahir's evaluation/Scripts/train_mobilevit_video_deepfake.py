@@ -235,15 +235,19 @@ def split_samples(
 ) -> Tuple[List[VideoSample], List[VideoSample], List[VideoSample]]:
     rng = random.Random(seed)
 
+    # Split by subject_id to avoid leakage between train/val/test.
+    # This keeps all clips from the same subject in the same split.
     by_group: Dict[str, List[VideoSample]] = {}
+    samples = sorted(samples, key=lambda s: (s.subject_id, s.path))
     for s in samples:
-        by_group.setdefault(s.av_type, []).append(s)
+        by_group.setdefault(s.subject_id, []).append(s)
 
     train_samples: List[VideoSample] = []
     val_samples: List[VideoSample] = []
     test_samples: List[VideoSample] = []
 
-    for group in by_group.values():
+    for group_key in sorted(by_group.keys()):
+        group = by_group[group_key]
         rng.shuffle(group)
         n = len(group)
         train_end = int(n * train_ratio)
@@ -286,8 +290,7 @@ def train_one_epoch(
     total = 0
 
     pbar = tqdm(loader, desc="Train", leave=False)
-    total_steps = len(loader)
-    for step_idx, (frames, labels) in enumerate(pbar, start=1):
+    for frames, labels in pbar:
         frames = frames.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
 
@@ -308,12 +311,6 @@ def train_one_epoch(
         total += labels.size(0)
 
         pbar.set_postfix(loss=loss.item(), acc=correct / max(total, 1))
-        if step_idx == 1 or step_idx % 10 == 0 or step_idx == total_steps:
-            print(
-                f"Train step {step_idx}/{total_steps} | "
-                f"loss={loss.item():.4f} | acc={correct / max(total, 1):.4f}",
-                flush=True,
-            )
 
     epoch_loss = running_loss / max(total, 1)
     epoch_acc = correct / max(total, 1)
@@ -332,8 +329,7 @@ def evaluate(
     total = 0
 
     pbar = tqdm(loader, desc="Val", leave=False)
-    total_steps = len(loader)
-    for step_idx, (frames, labels) in enumerate(pbar, start=1):
+    for frames, labels in pbar:
         frames = frames.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
 
@@ -346,13 +342,6 @@ def evaluate(
         preds = logits.argmax(dim=1)
         correct += (preds == labels).sum().item()
         total += labels.size(0)
-
-        if step_idx == 1 or step_idx % 10 == 0 or step_idx == total_steps:
-            print(
-                f"Val step {step_idx}/{total_steps} | "
-                f"loss={loss.item():.4f} | acc={correct / max(total, 1):.4f}",
-                flush=True,
-            )
 
     epoch_loss = running_loss / max(total, 1)
     epoch_acc = correct / max(total, 1)
@@ -402,6 +391,7 @@ def export_embeddings(
         "language": all_languages,
         "gender": all_genders,
         "subject_id": all_subject_ids,
+        "split_strategy": "subject_id",
     }
     torch.save(payload, out_path)
 

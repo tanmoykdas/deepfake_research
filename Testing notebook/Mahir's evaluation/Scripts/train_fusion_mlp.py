@@ -77,8 +77,7 @@ def train_one_epoch(
     total = 0
 
     pbar = tqdm(loader, desc="Train", leave=False)
-    total_steps = len(loader)
-    for step_idx, ((video_emb, audio_emb), labels) in enumerate(pbar, start=1):
+    for (video_emb, audio_emb), labels in pbar:
         video_emb = video_emb.to(device, non_blocking=True)
         audio_emb = audio_emb.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
@@ -100,12 +99,6 @@ def train_one_epoch(
         total += labels.size(0)
 
         pbar.set_postfix(loss=loss.item(), acc=correct / max(total, 1))
-        if step_idx == 1 or step_idx % 10 == 0 or step_idx == total_steps:
-            print(
-                f"Train step {step_idx}/{total_steps} | "
-                f"loss={loss.item():.4f} | acc={correct / max(total, 1):.4f}",
-                flush=True,
-            )
 
     epoch_loss = running_loss / max(total, 1)
     epoch_acc = correct / max(total, 1)
@@ -124,8 +117,7 @@ def evaluate(
     total = 0
 
     pbar = tqdm(loader, desc="Val", leave=False)
-    total_steps = len(loader)
-    for step_idx, ((video_emb, audio_emb), labels) in enumerate(pbar, start=1):
+    for (video_emb, audio_emb), labels in pbar:
         video_emb = video_emb.to(device, non_blocking=True)
         audio_emb = audio_emb.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
@@ -139,13 +131,6 @@ def evaluate(
         preds = logits.argmax(dim=1)
         correct += (preds == labels).sum().item()
         total += labels.size(0)
-
-        if step_idx == 1 or step_idx % 10 == 0 or step_idx == total_steps:
-            print(
-                f"Val step {step_idx}/{total_steps} | "
-                f"loss={loss.item():.4f} | acc={correct / max(total, 1):.4f}",
-                flush=True,
-            )
 
     epoch_loss = running_loss / max(total, 1)
     epoch_acc = correct / max(total, 1)
@@ -166,8 +151,7 @@ def evaluate_test_with_metrics(
     all_logits = []
 
     pbar = tqdm(loader, desc="Test Eval", leave=False)
-    total_steps = len(loader)
-    for step_idx, ((video_emb, audio_emb), labels) in enumerate(pbar, start=1):
+    for (video_emb, audio_emb), labels in pbar:
         video_emb = video_emb.to(device, non_blocking=True)
         audio_emb = audio_emb.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
@@ -178,8 +162,6 @@ def evaluate_test_with_metrics(
         all_preds.append(preds.cpu().numpy())
         all_labels.append(labels.cpu().numpy())
         all_logits.append(torch.softmax(logits, dim=1).cpu().numpy())
-        if step_idx == 1 or step_idx % 10 == 0 or step_idx == total_steps:
-            print(f"Test eval step {step_idx}/{total_steps}", flush=True)
 
     preds = np.concatenate(all_preds, axis=0)
     labels = np.concatenate(all_labels, axis=0)

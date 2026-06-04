@@ -359,7 +359,7 @@ def train_one_epoch(
     c4_labels = []
 
     pbar = tqdm(loader, desc="Train", leave=False)
-    for step_idx, (v, a, v_lbl, a_lbl, c4_lbl) in enumerate(pbar, start=1):
+    for v, a, v_lbl, a_lbl, c4_lbl in pbar:
         v = v.to(device, non_blocking=True)
         a = a.to(device, non_blocking=True)
         v_lbl = v_lbl.to(device, non_blocking=True)
@@ -410,14 +410,6 @@ def train_one_epoch(
             lr=f"{optimizer.param_groups[0]['lr']:.2e}",
         )
 
-        if step_idx == 1 or step_idx % 20 == 0 or step_idx == len(loader):
-            print(
-                f"Train step {step_idx}/{len(loader)} | "
-                f"loss={loss.item():.4f} | c4_acc={running_acc:.4f} | "
-                f"parts={loss_parts}",
-                flush=True,
-            )
-
     c4_pred = np.concatenate(c4_preds, axis=0)
     c4_true = np.concatenate(c4_labels, axis=0)
 
@@ -444,7 +436,7 @@ def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, split_n
     c4_true = []
 
     pbar = tqdm(loader, desc=f"{split_name}", leave=False)
-    for step_idx, (v, a, v_lbl, a_lbl, c4_lbl) in enumerate(pbar, start=1):
+    for v, a, v_lbl, a_lbl, c4_lbl in pbar:
         v = v.to(device, non_blocking=True)
         a = a.to(device, non_blocking=True)
         v_lbl = v_lbl.to(device, non_blocking=True)
@@ -475,9 +467,6 @@ def evaluate(model: nn.Module, loader: DataLoader, device: torch.device, split_n
         v_true.append(v_lbl.detach().cpu().numpy())
         a_true.append(a_lbl.detach().cpu().numpy())
         c4_true.append(c4_lbl.detach().cpu().numpy())
-
-        if step_idx == 1 or step_idx % 20 == 0 or step_idx == len(loader):
-            print(f"{split_name} step {step_idx}/{len(loader)}", flush=True)
 
     v_pred = np.concatenate(v_preds, axis=0)
     a_pred = np.concatenate(a_preds, axis=0)
